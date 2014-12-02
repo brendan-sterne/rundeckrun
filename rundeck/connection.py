@@ -14,6 +14,7 @@ from functools import wraps
 import xml.dom.minidom as xml_dom
 
 import requests
+from pprint import pprint
 
 from .transforms import ElementTree
 from .defaults import RUNDECK_API_VERSION
@@ -138,17 +139,18 @@ class RundeckConnectionTolerant(object):
         if api_token is not None:
             self.http.headers['X-Rundeck-Auth-Token'] = api_token
         elif usr is not None and pwd is not None:
-            url = self.make_url("/j_security_check")
+            url = '{0}://{1}/j_security_check'.format(self.protocol, self.server)
             data = {
                 "j_username" : usr,
                 "j_password" : pwd
             }
-            response = self.http.request('POST', url, data=data)
-            if (response.url.find('/user/error') != -1
-                    or response.url.find('/user/login') != -1
-                    or response.status_code != 200):
+            response = self.http.request('POST', url, data=data, allow_redirects=False)
+            if ((response.status_code == 200 and response.url.find('/user/error') != -1)
+                    or (response.status_code == 200 and response.url.find('/user/login') != -1)
+                    or (response.status_code == 302 and response.headers['location'].find('/user/error') != -1)
+                    or (response.status_code == 302 and response.headers['location'].find('/user/login') != -1)
+                    or (response.status_code not in [200, 302])):
                 raise InvalidAuthentication("Bad Username or Password")
-
 
 
 
